@@ -17,6 +17,7 @@ frontend/    React app
 artifacts/   Trained ML models and Chroma persistence
 data/        raw / interim / processed (gitignored)
 notebooks/   Exploration (gitignored)
+scripts/     Offline utilities (e.g. scripts/preprocess/ for data prep)
 logs/        analyze / errors / eval
 ```
 
