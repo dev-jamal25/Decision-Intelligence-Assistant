@@ -2,7 +2,6 @@
 
 import logging
 from functools import lru_cache
-import json
 
 logger = logging.getLogger(__name__)
 

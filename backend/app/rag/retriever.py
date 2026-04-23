@@ -36,18 +36,22 @@ class RetrievedCase:
 class Retriever:
     """Wrapper around Chroma collection for similarity search."""
 
-    def __init__(self, collection):
+    def __init__(self, collection, embedder):
         """
-        Initialize retriever with a Chroma collection.
+        Initialize retriever with a Chroma collection and embedder.
 
         Args:
-            collection: Chroma collection object
+            collection: Chroma collection object (created without embedding function)
+            embedder: OpenRouterEmbedder instance for explicit query embedding
         """
         self.collection = collection
+        self.embedder = embedder
 
     def retrieve(self, query: str, k: int = 5) -> list[RetrievedCase]:
         """
         Retrieve top-k similar cases from the collection.
+
+        Embeds the query explicitly using OpenRouter, then queries Chroma.
 
         Args:
             query: Query text
@@ -57,7 +61,14 @@ class Retriever:
             List of RetrievedCase objects
         """
         try:
-            results = self.collection.query(query_texts=[query], n_results=k)
+            # Embed query explicitly
+            query_embedding = self.embedder.embed([query])
+            if not query_embedding:
+                logger.error(f"Failed to embed query: {query}")
+                return []
+
+            # Query with embeddings (collection has no embedding function)
+            results = self.collection.query(query_embeddings=query_embedding, n_results=k)
         except Exception as e:
             logger.error(f"Retrieval failed for query '{query}': {e}")
             return []

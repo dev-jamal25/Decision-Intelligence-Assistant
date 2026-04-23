@@ -53,6 +53,7 @@ def load_rag_cases(csv_path: str | Path) -> Generator[RAGCase, None, None]:
         for row in reader:
             # Handle NaN/None values from CSV: empty string or "nan" becomes None
             def parse_optional(val: str) -> str | None:
+                val = val.strip() if val else ""
                 if not val or val.lower() == "nan":
                     return None
                 return val

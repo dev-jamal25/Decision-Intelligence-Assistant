@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 
-@router.post("/", response_model=IngestResponse)
+@router.post("", response_model=IngestResponse)
 async def ingest(request: IngestRequest = IngestRequest()) -> IngestResponse:
     """
     Build or refresh the Chroma collection from RAG cases CSV.
