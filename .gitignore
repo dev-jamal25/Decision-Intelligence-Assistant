@@ -3,7 +3,7 @@ data/
 notebooks/
 CLAUDE.md
 logs/
-
+.claude/
 node_modules/
 
 # Byte-compiled / optimized / DLL files
