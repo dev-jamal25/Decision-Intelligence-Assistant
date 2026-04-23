@@ -20,9 +20,16 @@ class Settings(BaseSettings):
     # RAG defaults
     retrieval_k: int = 5
 
+    # OpenRouter embedding settings
+    openrouter_api_key: str = ""
+    embedding_model: str = "nvidia/llama-nemotron-embed-vl-1b-v2:free"
+    embedding_base_url: str = "https://openrouter.ai/api/v1"
+
     class Config:
-        env_file = ".env"
+        # Resolve .env from project root
+        env_file = str(Path(__file__).parent.parent.parent / ".env")
         env_file_encoding = "utf-8"
+        case_sensitive = False
 
 
 @lru_cache

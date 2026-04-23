@@ -15,7 +15,7 @@ class RAGCaseChunk:
 
         Args:
             chunk_id: Unique ID for this chunk
-            text: Combined text to embed
+            text: Text to embed (already prepared)
             metadata: Dict with source information
         """
         self.chunk_id = chunk_id
@@ -27,8 +27,7 @@ def chunk_rag_case(case: RAGCase) -> RAGCaseChunk:
     """
     Convert a RAG case into a prepared chunk.
 
-    Pairs customer tweet with support reply (if available).
-    Currently 1:1 mapping (one chunk per case).
+    Uses pre-computed document_text from the case.
 
     Args:
         case: RAGCase from loader
@@ -37,7 +36,7 @@ def chunk_rag_case(case: RAGCase) -> RAGCaseChunk:
         RAGCaseChunk ready for insertion
     """
     chunk_id = str(case.customer_tweet_id)
-    text = case.get_combined_text()
+    text = case.document_text
     metadata = case.get_metadata()
 
     return RAGCaseChunk(chunk_id=chunk_id, text=text, metadata=metadata)

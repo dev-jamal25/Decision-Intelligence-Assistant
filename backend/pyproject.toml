@@ -9,7 +9,7 @@ dependencies = [
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
     "chromadb>=0.5",
-    "sentence-transformers>=3.0",
+    "httpx>=0.24",
 ]
 
 [build-system]

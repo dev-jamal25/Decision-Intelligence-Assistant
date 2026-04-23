@@ -1,25 +1,32 @@
-"""Embedding function adapter for Chroma using sentence-transformers."""
+"""Embedding function adapter for OpenRouter API."""
 
 import logging
 from functools import lru_cache
-
-from sentence_transformers import SentenceTransformer
+import json
 
 logger = logging.getLogger(__name__)
 
 
-class Embedder:
-    """Wrapper around sentence-transformers for embedding texts."""
+class OpenRouterEmbedder:
+    """Wrapper around OpenRouter embedding API."""
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
-        """Initialize embedder with specified model."""
-        self.model_name = model_name
-        self.model = SentenceTransformer(model_name)
-        logger.info(f"Loaded embedding model: {model_name}")
+    def __init__(self, api_key: str, model: str, base_url: str = "https://openrouter.ai/api/v1"):
+        """
+        Initialize embedder with OpenRouter API credentials.
+
+        Args:
+            api_key: OpenRouter API key
+            model: Model name (e.g. "nvidia/llama-nemotron-embed-vl-1b-v2:free")
+            base_url: OpenRouter API base URL
+        """
+        self.api_key = api_key
+        self.model = model
+        self.base_url = base_url
+        logger.info(f"Initialized OpenRouter embedder: {model}")
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         """
-        Embed a list of texts.
+        Embed a list of texts using OpenRouter API.
 
         Args:
             texts: List of strings to embed
@@ -29,11 +36,49 @@ class Embedder:
         """
         if not texts:
             return []
-        embeddings = self.model.encode(texts, convert_to_numpy=False)
-        return embeddings.tolist() if hasattr(embeddings, 'tolist') else embeddings
+
+        try:
+            import httpx
+        except ImportError:
+            logger.error("httpx not installed. Install with: uv add httpx")
+            raise ImportError("httpx is required for OpenRouter embeddings")
+
+        url = f"{self.base_url}/embeddings"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.model,
+            "input": texts,
+        }
+
+        try:
+            with httpx.Client() as client:
+                response = client.post(url, json=payload, headers=headers, timeout=30.0)
+                response.raise_for_status()
+        except Exception as e:
+            logger.error(f"OpenRouter API error: {e}")
+            raise
+
+        data = response.json()
+        embeddings = [item["embedding"] for item in data["data"]]
+        logger.debug(f"Generated {len(embeddings)} embeddings (model: {self.model})")
+        return embeddings
 
 
-@lru_cache(maxsize=1)
-def get_embedder(model_name: str = "all-MiniLM-L6-v2") -> Embedder:
-    """Get or create cached embedder instance."""
-    return Embedder(model_name=model_name)
+def get_embedder(api_key: str, model: str, base_url: str = "https://openrouter.ai/api/v1") -> OpenRouterEmbedder:
+    """
+    Create embedder instance (not cached to allow different credentials).
+
+    Args:
+        api_key: OpenRouter API key
+        model: Model name
+        base_url: API base URL
+
+    Returns:
+        OpenRouterEmbedder instance
+    """
+    if not api_key:
+        raise ValueError("OpenRouter API key is required. Set OPENROUTER_API_KEY in .env")
+    return OpenRouterEmbedder(api_key=api_key, model=model, base_url=base_url)

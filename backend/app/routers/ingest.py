@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 
-@router.post("/build", response_model=IngestResponse)
-async def build_collection(request: IngestRequest = IngestRequest()) -> IngestResponse:
+@router.post("/", response_model=IngestResponse)
+async def ingest(request: IngestRequest = IngestRequest()) -> IngestResponse:
     """
     Build or refresh the Chroma collection from RAG cases CSV.
 
@@ -28,16 +28,19 @@ async def build_collection(request: IngestRequest = IngestRequest()) -> IngestRe
     try:
         settings = get_settings()
         store = get_chroma_store(settings.chroma_persist_dir)
-        embedder = get_embedder()
+        embedder = get_embedder(
+            api_key=settings.openrouter_api_key,
+            model=settings.embedding_model,
+            base_url=settings.embedding_base_url,
+        )
 
-        # Get or create collection with embedding function
-        chroma_embedding_fn = store.client.get_embedding_function()
-        collection = store.get_or_create_collection(embedding_function=chroma_embedding_fn)
-
-        # Clear if requested
+        # Handle overwrite by deleting and recreating collection
         if request.overwrite:
-            logger.info("Clearing collection before rebuild")
-            collection.delete(where={})
+            logger.info("Overwrite requested: deleting existing collection")
+            store.delete_collection()
+
+        # Get or create collection (no embedding_function parameter)
+        collection = store.get_or_create_collection()
 
         # Load, chunk, and insert cases
         cases_processed = 0
@@ -79,7 +82,7 @@ async def build_collection(request: IngestRequest = IngestRequest()) -> IngestRe
             )
 
         collection_count = store.collection_count()
-        logger.info(f"Collection built: {cases_processed} cases processed, {collection_count} total in collection")
+        logger.info(f"Ingest complete: {cases_processed} cases processed, {collection_count} total in collection")
 
         return IngestResponse(
             success=True,
@@ -91,6 +94,9 @@ async def build_collection(request: IngestRequest = IngestRequest()) -> IngestRe
     except FileNotFoundError as e:
         logger.error(f"RAG data file not found: {e}")
         raise HTTPException(status_code=404, detail=f"RAG data file not found: {e}")
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}")
+        raise HTTPException(status_code=400, detail=f"Configuration error: {str(e)}")
     except Exception as e:
         logger.error(f"Ingest failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ingest failed: {str(e)}")
