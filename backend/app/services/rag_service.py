@@ -13,26 +13,21 @@ class RAGService:
     """Wrapper around RAG retrieval for context generation."""
 
     def __init__(self):
-        """Initialize RAG service with retriever."""
-        settings = get_settings()
-        store = get_chroma_store(settings.chroma_persist_dir)
-        embedder = get_embedder(
-            api_key=settings.openrouter_api_key,
-            model=settings.openrouter_embedding_model,
-            base_url=settings.openrouter_base_url,
+        """Initialize RAG service with dependencies (not collection - checked dynamically)."""
+        self.settings = get_settings()
+        self.store = get_chroma_store(self.settings.chroma_persist_dir)
+        self.embedder = get_embedder(
+            api_key=self.settings.openrouter_api_key,
+            model=self.settings.openrouter_embedding_model,
+            base_url=self.settings.openrouter_base_url,
         )
-        try:
-            collection = store.client.get_collection(name=store.COLLECTION_NAME)
-        except Exception as e:
-            logger.warning(f"RAG collection not available: {e}")
-            collection = None
-
-        self.retriever = Retriever(collection=collection, embedder=embedder) if collection else None
         logger.info("Initialized RAG service")
 
     def retrieve_context(self, query: str, k: int = 5) -> tuple[list[RetrievedCase], str]:
         """
         Retrieve context cases for a query.
+
+        Checks collection availability dynamically (supports post-ingest calls).
 
         Args:
             query: User query
@@ -41,12 +36,17 @@ class RAGService:
         Returns:
             Tuple of (retrieved_cases, formatted_context_string)
         """
-        if not self.retriever:
-            logger.warning("Retriever not initialized; returning empty context")
+        # Check collection availability dynamically
+        try:
+            collection = self.store.client.get_collection(name=self.store.COLLECTION_NAME)
+        except Exception as e:
+            logger.warning(f"RAG collection not available: {e}; returning empty context")
             return [], ""
 
+        retriever = Retriever(collection=collection, embedder=self.embedder)
+
         try:
-            cases = self.retriever.retrieve(query=query, k=k)
+            cases = retriever.retrieve(query=query, k=k)
         except Exception as e:
             logger.error(f"Retrieval failed: {e}")
             return [], ""

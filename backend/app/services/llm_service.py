@@ -1,7 +1,6 @@
 """LLM client for OpenRouter chat completions."""
 
 import logging
-import json
 from typing import Optional
 
 logger = logging.getLogger(__name__)

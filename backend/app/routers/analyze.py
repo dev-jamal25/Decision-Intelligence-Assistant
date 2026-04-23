@@ -3,7 +3,6 @@
 import logging
 from fastapi import APIRouter, HTTPException
 
-from app.config import get_settings
 from app.services.llm_service import LLMService
 from app.services.rag_service import RAGService
 from app.schemas.analyze import RAGAnswerRequest, NonRAGAnswerRequest, AnswerResponse
@@ -49,7 +48,6 @@ async def rag_answer(request: RAGAnswerRequest) -> AnswerResponse:
         AnswerResponse with answer, model, and context info
     """
     try:
-        settings = get_settings()
         rag_service = get_rag_service()
         llm_service = get_llm_service()
 
@@ -101,7 +99,6 @@ async def non_rag_answer(request: NonRAGAnswerRequest) -> AnswerResponse:
         AnswerResponse with answer and model info
     """
     try:
-        settings = get_settings()
         llm_service = get_llm_service()
 
         # Generate answer without context
