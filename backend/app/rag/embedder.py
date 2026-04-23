@@ -10,29 +10,13 @@ class OpenRouterEmbedder:
     """Wrapper around OpenRouter embedding API."""
 
     def __init__(self, api_key: str, model: str, base_url: str = "https://openrouter.ai/api/v1"):
-        """
-        Initialize embedder with OpenRouter API credentials.
-
-        Args:
-            api_key: OpenRouter API key
-            model: Model name (e.g. "nvidia/llama-nemotron-embed-vl-1b-v2:free")
-            base_url: OpenRouter API base URL
-        """
         self.api_key = api_key
         self.model = model
         self.base_url = base_url
         logger.info(f"Initialized OpenRouter embedder: {model}")
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        """
-        Embed a list of texts using OpenRouter API.
 
-        Args:
-            texts: List of strings to embed
-
-        Returns:
-            List of embedding vectors (each is a list of floats)
-        """
         if not texts:
             return []
 

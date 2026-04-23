@@ -33,8 +33,8 @@ async def search(
         store = get_chroma_store(settings.chroma_persist_dir)
         embedder = get_embedder(
             api_key=settings.openrouter_api_key,
-            model=settings.embedding_model,
-            base_url=settings.embedding_base_url,
+            model=settings.openrouter_embedding_model,
+            base_url=settings.openrouter_base_url,
         )
 
         try:
