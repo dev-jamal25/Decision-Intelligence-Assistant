@@ -16,22 +16,13 @@ router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 @router.post("", response_model=IngestResponse)
 async def ingest(request: IngestRequest = IngestRequest()) -> IngestResponse:
-    """
-    Build or refresh the Chroma collection from RAG cases CSV.
-
-    Args:
-        request: Ingest configuration (overwrite flag)
-
-    Returns:
-        IngestResponse with status and counts
-    """
     try:
         settings = get_settings()
         store = get_chroma_store(settings.chroma_persist_dir)
         embedder = get_embedder(
             api_key=settings.openrouter_api_key,
-            model=settings.embedding_model,
-            base_url=settings.embedding_base_url,
+            model=settings.openrouter_embedding_model,
+            base_url=settings.openrouter_base_url,
         )
 
         # Handle overwrite by deleting and recreating collection
@@ -82,7 +73,9 @@ async def ingest(request: IngestRequest = IngestRequest()) -> IngestResponse:
             )
 
         collection_count = store.collection_count()
-        logger.info(f"Ingest complete: {cases_processed} cases processed, {collection_count} total in collection")
+        logger.info(
+            f"Ingest complete: {cases_processed} cases processed, {collection_count} total in collection"
+        )
 
         return IngestResponse(
             success=True,

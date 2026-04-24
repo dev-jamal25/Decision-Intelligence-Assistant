@@ -3,6 +3,7 @@
 import logging
 from fastapi import APIRouter, HTTPException
 
+from app.config import get_settings
 from app.services.llm_service import LLMService
 from app.services.rag_service import RAGService
 from app.schemas.analyze import RAGAnswerRequest, NonRAGAnswerRequest, AnswerResponse
