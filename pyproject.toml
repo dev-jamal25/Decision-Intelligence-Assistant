@@ -9,6 +9,8 @@ dependencies = [
     "jupyterlab>=4.2",
     "ipykernel>=6.29",
     "pytest>=8.2",
+    "matplotlib>=3.10.8",
+    "scikit-learn>=1.8.0",
 ]
 
 [tool.uv]

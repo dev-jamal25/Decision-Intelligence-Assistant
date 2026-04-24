@@ -1,0 +1,62 @@
+{
+  "model_name": "combined_logreg_v1",
+  "exported_at": "2026-04-24T00:02:57.176625",
+  "description": "TF-IDF (50k 1-2grams) + engineered features (5) on scaled priority label, stratified 70/15/15 split",
+  "input_text_field": "text_clean_ml",
+  "target": "priority_label",
+  "target_classes": [
+    "normal",
+    "urgent"
+  ],
+  "positive_class": "urgent",
+  "test_metrics": {
+    "accuracy": 0.9715371500709293,
+    "precision": 0.967685939377754,
+    "recall": 0.912457730771998,
+    "f1": 0.9392606856201224,
+    "roc_auc": 0.9961184489747034,
+    "log_loss": 0.08189320700868195,
+    "n_test_samples": 230511
+  },
+  "features_text": {
+    "type": "TfidfVectorizer",
+    "max_features": 50000,
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 5,
+    "lowercase": true,
+    "vocab_size": 50000
+  },
+  "features_engineered": [
+    "char_count",
+    "word_count",
+    "exclamation_count",
+    "question_mark_count",
+    "caps_ratio"
+  ],
+  "leakage_policy": {
+    "excluded_direct": [
+      "urgency_keyword_count",
+      "repeated_punctuation_flag"
+    ],
+    "excluded_reason": "Direct components of weak-label rule; would tautologically predict target",
+    "retained_proxy": [
+      "exclamation_count",
+      "question_mark_count"
+    ],
+    "proxy_caveat": "Any value \u22652 deterministically triggers urgent via rule branch !{2,}|\\?{2,}. v2 validation recommended."
+  },
+  "preprocessing_notes": [
+    "Text: first leading @-mention stripped (text_clean_ml), raw text retained (text_raw)",
+    "Empty text_clean_ml rows dropped (1,105 rows, 0.07%)",
+    "Stratified split: 70% train, 15% val, 15% test (random_state=42)",
+    "Vectorizer fit on train only; scaler fit on train only"
+  ],
+  "files": {
+    "model": "C:\\Users\\Jamal\\Documents\\bootcamps\\AIE\\Week 3\\Decision-Intelligence-Assistant\\artifacts\\models\\combined_logreg_v1.pkl",
+    "vectorizer": "C:\\Users\\Jamal\\Documents\\bootcamps\\AIE\\Week 3\\Decision-Intelligence-Assistant\\artifacts\\models\\tfidf_vectorizer_v1.pkl",
+    "scaler": "C:\\Users\\Jamal\\Documents\\bootcamps\\AIE\\Week 3\\Decision-Intelligence-Assistant\\artifacts\\models\\standard_scaler_v1.pkl"
+  }
+}
