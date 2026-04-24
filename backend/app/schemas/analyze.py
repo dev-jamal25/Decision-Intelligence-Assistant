@@ -48,37 +48,64 @@ class RetrievedCaseInfo(BaseModel):
     score: float = Field(..., ge=0.0, le=1.0, description="Similarity score")
 
 
+class LatencyMs(BaseModel):
+    """Per-step latency breakdown in milliseconds."""
+
+    retrieval: float = Field(..., description="Vector retrieval time (ms)")
+    ml: float = Field(..., description="ML priority prediction time (ms)")
+    llm_zero_shot_priority: float = Field(..., description="LLM zero-shot priority call time (ms)")
+    rag: float = Field(..., description="RAG answer generation time (ms)")
+    non_rag: float = Field(..., description="Non-RAG answer generation time (ms)")
+    total: float = Field(..., description="Total analyze wall-clock time (ms)")
+
+
 class AnalyzeResponse(BaseModel):
     """Unified orchestration response combining RAG, LLM, and ML priority."""
 
     query: str = Field(..., description="The user query")
 
-    # Priority prediction
-    priority_prediction: str = Field(..., description="Predicted priority (normal/urgent)")
-    priority_confidence: float = Field(..., ge=0.0, le=1.0, description="Priority prediction confidence")
-    priority_model: str = Field(..., description="Priority model used")
+    # ── Backward-compatible priority fields (ML) ──────────────────────────────
+    priority_prediction: str = Field(..., description="ML priority prediction (normal/urgent)")
+    priority_confidence: float = Field(..., ge=0.0, le=1.0, description="ML priority confidence")
+    priority_model: str = Field(..., description="ML model name")
 
-    # Retrieval results
+    # ── Explicit ML priority (same values, explicit naming for comparison) ─────
+    ml_priority_prediction: str = Field(..., description="ML priority prediction (normal/urgent)")
+    ml_priority_confidence: float = Field(..., ge=0.0, le=1.0, description="ML priority confidence")
+
+    # ── LLM zero-shot priority ─────────────────────────────────────────────────
+    llm_zero_shot_priority_prediction: str = Field(
+        ..., description="LLM zero-shot priority prediction (normal/urgent)"
+    )
+    llm_zero_shot_priority_confidence: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="LLM self-reported confidence for priority"
+    )
+    llm_zero_shot_priority_rationale: Optional[str] = Field(
+        None, description="LLM one-sentence rationale for priority decision"
+    )
+
+    # ── Retrieval results ──────────────────────────────────────────────────────
     retrieved_cases: list[RetrievedCaseInfo] = Field(
         default_factory=list, description="Top-k retrieved cases"
     )
     retrieved_count: int = Field(..., ge=0, description="Number of cases retrieved")
     top_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Highest similarity score")
-    retrieval_is_weak: bool = Field(
-        ..., description="Whether retrieval is weak (below threshold)"
-    )
-    retrieval_threshold: float = Field(
-        default=0.3, description="Threshold for weak retrieval (top_score < threshold)"
-    )
+    retrieval_is_weak: bool = Field(..., description="Whether retrieval is weak (below threshold)")
+    retrieval_threshold: float = Field(default=0.3, description="Weak-retrieval threshold")
 
-    # Answer generation
+    # ── Answer generation ──────────────────────────────────────────────────────
     rag_answer: str = Field(..., description="RAG-grounded answer")
     non_rag_answer: str = Field(..., description="Zero-shot answer (without RAG context)")
     answer_model: str = Field(..., description="LLM model used for answers")
-    answer_provider: str = Field(default="openrouter", description="LLM provider used (openrouter or gemini)")
-    fallback_used: bool = Field(default=False, description="Whether Gemini fallback was used for any answer")
+    answer_provider: str = Field(default="openrouter", description="LLM provider (openrouter or gemini)")
+    fallback_used: bool = Field(default=False, description="Whether a fallback LLM was used")
 
-    # Diagnostics
-    model_info: Optional[dict] = Field(
-        None, description="Additional model/diagnostics info"
-    )
+    # ── Latency ───────────────────────────────────────────────────────────────
+    latency_ms: LatencyMs = Field(..., description="Per-step latency breakdown in ms")
+
+    # ── Usage / cost ──────────────────────────────────────────────────────────
+    usage_info: Optional[dict] = Field(None, description="Aggregated token usage across LLM calls")
+    cost_info: Optional[dict] = Field(None, description="Estimated cost info (null if not applicable)")
+
+    # ── Diagnostics ───────────────────────────────────────────────────────────
+    model_info: Optional[dict] = Field(None, description="Additional model/diagnostics info")

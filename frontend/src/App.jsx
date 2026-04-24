@@ -6,6 +6,7 @@ import PriorityPanel from './components/PriorityPanel'
 import OutputSwitcher from './components/OutputSwitcher'
 import MetricsPanel from './components/MetricsPanel'
 import SourcePanel from './components/SourcePanel'
+import UsagePanel from './components/UsagePanel'
 
 export default function App() {
   const [result, setResult] = useState(null)
@@ -46,9 +47,13 @@ export default function App() {
           </div>
 
           <PriorityPanel
-            prediction={result.priority_prediction}
-            confidence={result.priority_confidence}
-            model={result.priority_model}
+            mlPrediction={result.ml_priority_prediction}
+            mlConfidence={result.ml_priority_confidence}
+            mlModel={result.priority_model}
+            llmPrediction={result.llm_zero_shot_priority_prediction}
+            llmConfidence={result.llm_zero_shot_priority_confidence}
+            llmRationale={result.llm_zero_shot_priority_rationale}
+            answerModel={result.answer_model}
           />
 
           <OutputSwitcher
@@ -62,6 +67,14 @@ export default function App() {
             topScore={result.top_score}
             isWeak={result.retrieval_is_weak}
             threshold={result.retrieval_threshold}
+            latencyMs={result.latency_ms}
+          />
+
+          <UsagePanel
+            usageInfo={result.usage_info}
+            costInfo={result.cost_info}
+            provider={result.answer_provider}
+            fallbackUsed={result.fallback_used}
           />
 
           <SourcePanel cases={result.retrieved_cases} />
