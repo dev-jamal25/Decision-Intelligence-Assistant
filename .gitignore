@@ -3,7 +3,7 @@ data/
 notebooks/
 CLAUDE.md
 logs/
-artifacts/chroma/
+artifacts/chroma
 .claude/
 node_modules/
 

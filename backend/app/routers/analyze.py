@@ -46,7 +46,7 @@ def get_llm_service() -> LLMService:
     return _llm_service
 
 
-@router.post("/", response_model=AnalyzeResponse)
+@router.post("", response_model=AnalyzeResponse)
 async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
     """
     Unified analysis endpoint: combines RAG, LLM, and ML priority.
