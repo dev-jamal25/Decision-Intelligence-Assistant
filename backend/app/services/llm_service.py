@@ -1,4 +1,4 @@
-"""LLM client for OpenRouter chat completions with Gemini fallback."""
+"""LLM client for OpenRouter chat completions with Gemini + tertiary fallback."""
 
 import logging
 from typing import Optional
@@ -37,7 +37,12 @@ class LLMResponse:
 
 
 class LLMService:
-    """OpenRouter LLM client with optional Gemini fallback for transient errors."""
+    """
+    OpenRouter primary → Gemini secondary → OpenRouter tertiary.
+
+    Each step is only attempted if the previous step raised a transient error.
+    Non-transient errors (auth, request shape) propagate immediately.
+    """
 
     def __init__(
         self,
@@ -45,8 +50,9 @@ class LLMService:
         model: str,
         base_url: str = "https://openrouter.ai/api/v1",
         gemini_api_key: str = "",
-        gemini_model: str = "gemini-2.0-flash",
+        gemini_model: str = "gemini-3-flash-preview",
         gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta",
+        fallback_model: str = "",
     ):
         self.api_key = api_key
         self.model = model
@@ -54,9 +60,12 @@ class LLMService:
         self.gemini_api_key = gemini_api_key
         self.gemini_model = gemini_model
         self.gemini_base_url = gemini_base_url
+        self.fallback_model = fallback_model
         logger.info(f"Initialized LLM service: primary={model}")
         if gemini_api_key:
             logger.info(f"Gemini fallback enabled: {gemini_model}")
+        if fallback_model:
+            logger.info(f"OpenRouter tertiary fallback enabled: {fallback_model}")
 
     def generate(
         self,
@@ -70,23 +79,48 @@ class LLMService:
         except ImportError:
             raise ImportError("httpx is required for LLM calls. Install with: uv add httpx")
 
+        # 1. Primary: OpenRouter main model
         try:
-            return self._call_openrouter(system_prompt, user_message, temperature, max_tokens, httpx)
+            return self._call_openrouter(
+                self.model, system_prompt, user_message, temperature, max_tokens, httpx
+            )
         except Exception as primary_exc:
             if not self._is_transient(primary_exc):
                 raise
-            if not self.gemini_api_key:
-                logger.warning("OpenRouter transient error and no Gemini fallback configured; re-raising.")
-                raise
-            logger.warning(f"OpenRouter transient error ({primary_exc}); falling back to Gemini.")
-            result = self._call_gemini(system_prompt, user_message, temperature, max_tokens, httpx)
-            result.fallback_used = True
-            return result
+            logger.warning(f"OpenRouter primary transient error ({primary_exc}); trying Gemini.")
+
+        # 2. Secondary: Gemini
+        if self.gemini_api_key:
+            try:
+                result = self._call_gemini(
+                    system_prompt, user_message, temperature, max_tokens, httpx
+                )
+                result.fallback_used = True
+                return result
+            except Exception as gemini_exc:
+                if not self._is_transient(gemini_exc):
+                    raise
+                logger.warning(f"Gemini fallback transient error ({gemini_exc}); trying tertiary.")
+        else:
+            logger.warning("Gemini not configured; skipping to tertiary fallback.")
+
+        # 3. Tertiary: OpenRouter fallback model
+        if not self.fallback_model:
+            raise RuntimeError(
+                "All configured LLM backends failed and no tertiary fallback model is set."
+            )
+        logger.warning(f"Using OpenRouter tertiary fallback: {self.fallback_model}")
+        result = self._call_openrouter(
+            self.fallback_model, system_prompt, user_message, temperature, max_tokens, httpx
+        )
+        result.fallback_used = True
+        return result
 
     # ── Private helpers ──────────────────────────────────────────────────────
 
     def _call_openrouter(
         self,
+        model: str,
         system_prompt: str,
         user_message: str,
         temperature: float,
@@ -99,7 +133,7 @@ class LLMService:
             "Content-Type": "application/json",
         }
         payload = {
-            "model": self.model,
+            "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
@@ -119,8 +153,8 @@ class LLMService:
         data = response.json()
         text = data["choices"][0]["message"]["content"]
         usage = data.get("usage", {})
-        logger.debug(f"OpenRouter response from {self.model}")
-        return LLMResponse(text=text, model=self.model, usage=usage, provider="openrouter")
+        logger.debug(f"OpenRouter response from {model}")
+        return LLMResponse(text=text, model=model, usage=usage, provider="openrouter")
 
     def _call_gemini(
         self,
@@ -173,7 +207,7 @@ class LLMService:
 
 
 class _TransientHTTPError(Exception):
-    """Raised when OpenRouter returns a transient HTTP error code."""
+    """Raised when a provider returns a transient HTTP error code."""
 
     def __init__(self, status_code: int, body: str):
         self.status_code = status_code

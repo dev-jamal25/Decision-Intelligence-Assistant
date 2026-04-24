@@ -56,8 +56,14 @@ class Settings(BaseSettings):
         alias="GEMINI_BASE_URL",
     )
     gemini_llm_model: str = Field(
-        default="gemini-2.0-flash",
+        default="gemini-3-flash-preview",
         alias="GEMINI_LLM_MODEL",
+    )
+
+    # OpenRouter tertiary fallback model (used if Gemini also fails)
+    openrouter_llm_fallback_model: str = Field(
+        default="inclusionai/ling-2.6-flash:free",
+        alias="OPENROUTER_LLM_FALLBACK_MODEL",
     )
 
     class Config:

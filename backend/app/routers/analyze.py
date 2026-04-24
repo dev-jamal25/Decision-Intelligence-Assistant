@@ -34,7 +34,7 @@ def get_rag_service() -> RAGService:
 
 
 def get_llm_service() -> LLMService:
-    """Get or create LLM service (OpenRouter primary, Gemini fallback)."""
+    """Get or create LLM service (OpenRouter → Gemini → OpenRouter tertiary)."""
     global _llm_service
     if _llm_service is None:
         settings = get_settings()
@@ -45,6 +45,7 @@ def get_llm_service() -> LLMService:
             gemini_api_key=settings.gemini_api_key,
             gemini_model=settings.gemini_llm_model,
             gemini_base_url=settings.gemini_base_url,
+            fallback_model=settings.openrouter_llm_fallback_model,
         )
     return _llm_service
 
