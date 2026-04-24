@@ -2,6 +2,9 @@
 
 A containerized multi-model evaluation system for customer support ticket prioritization. Compares machine learning baselines, zero-shot LLM reasoning, and RAG-augmented retrieval to predict support ticket priority.
 
+![stack](https://img.shields.io/badge/stack-FastAPI%20%2B%20React%20%2B%20ChromaDB-4f6df5) ![python](https://img.shields.io/badge/python-3.12-blue) ![uv](https://img.shields.io/badge/pkg-uv-purple) ![docker](https://img.shields.io/badge/docker-compose-2496ed)
+
+
 ## Features
 
 - **Multi-model evaluation**: ML logistic regression, OpenAI LLM, OpenRouter embeddings & fallback, Gemini final fallback
@@ -153,15 +156,6 @@ The app compares four approaches for ticket prioritization:
 4. **Non-RAG LLM**: LLM-only response (baseline for RAG effectiveness)
 
 Each request returns priority scores, latency, and estimated API costs. Use this to understand the trade-off between speed, accuracy, and cost.
-
-## Tech Stack
-
-- **Frontend**: React + Vite, served by nginx
-- **Backend**: FastAPI, uvicorn, Pydantic
-- **RAG**: Chroma vector DB, OpenRouter embeddings
-- **ML**: scikit-learn (logistic regression, TF-IDF)
-- **LLMs**: OpenAI (primary), OpenRouter (fallback), Gemini (final fallback)
-- **Packaging**: Docker, Docker Compose
 
 ## Project Structure
 
