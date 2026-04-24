@@ -1,5 +1,3 @@
-"""Embedding function adapter for OpenRouter API."""
-
 import logging
 from functools import lru_cache
 

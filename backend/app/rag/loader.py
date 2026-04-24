@@ -1,5 +1,3 @@
-"""Dataset loader for RAG cases from CSV."""
-
 import csv
 import logging
 from pathlib import Path

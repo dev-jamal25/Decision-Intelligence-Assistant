@@ -1,5 +1,6 @@
 """LLM pricing lookup for per-call cost estimation.
 
+OpenAI:      static table from published pricing page.
 OpenRouter:  fetches /models once per hour, caches pricing per model-id.
              For :free variants, strips the suffix and looks up the paid price.
 Gemini:      static table from published pricing page.
@@ -10,6 +11,15 @@ import time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# ── OpenAI pricing: USD per 1 million tokens (input, output) ─────────────────
+# Source: https://openai.com/api/pricing
+_OPENAI_PRICES: dict[str, tuple[float, float]] = {
+    "gpt-4o":            (2.50,  10.00),
+    "gpt-4o-mini":       (0.15,   0.60),
+    "gpt-4-turbo":       (10.00, 30.00),
+    "gpt-3.5-turbo":     (0.50,   1.50),
+}
 
 # ── Gemini pricing: USD per 1 million tokens (input, output) ─────────────────
 # Source: https://ai.google.dev/gemini-api/docs/pricing
@@ -64,9 +74,20 @@ class PricingService:
         """Return estimated USD cost, or None if pricing is unavailable."""
         if prompt_tokens is None or completion_tokens is None:
             return None
+        if provider == "openai":
+            return self._openai_cost(model, prompt_tokens, completion_tokens)
         if provider == "gemini":
             return self._gemini_cost(model, prompt_tokens, completion_tokens)
         return self._openrouter_cost(model, prompt_tokens, completion_tokens)
+
+    # ── OpenAI ────────────────────────────────────────────────────────────────
+
+    def _openai_cost(self, model: str, prompt: int, completion: int) -> Optional[float]:
+        prices = _OPENAI_PRICES.get(model.lower().strip())
+        if prices is None:
+            return None
+        input_usd_per_m, output_usd_per_m = prices
+        return (prompt * input_usd_per_m + completion * output_usd_per_m) / 1_000_000
 
     # ── Gemini ────────────────────────────────────────────────────────────────
 

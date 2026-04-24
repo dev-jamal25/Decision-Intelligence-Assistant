@@ -1,5 +1,3 @@
-"""Case chunking/pairing strategy for RAG."""
-
 import logging
 from app.rag.loader import RAGCase
 

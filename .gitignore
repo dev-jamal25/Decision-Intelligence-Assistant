@@ -1,7 +1,6 @@
 # general local ignored files
 data/
 notebooks/
-CLAUDE.md
 logs/
 artifacts/chroma
 .claude/

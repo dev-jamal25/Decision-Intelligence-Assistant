@@ -43,9 +43,13 @@ class Settings(BaseSettings):
         alias="OPENROUTER_BASE_URL",
     )
 
-    # OpenRouter LLM settings
+    # OpenAI primary LLM settings
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    openai_llm_model: str = Field(default="gpt-4o", alias="OPENAI_LLM_MODEL")
+
+    # OpenRouter LLM settings (kept for backward compat; not used as primary)
     openrouter_llm_model: str = Field(
-        default="openai/gpt-oss-120b:free",
+        default="openai/gpt-oss-20b:free",
         alias="OPENROUTER_LLM_MODEL",
     )
 

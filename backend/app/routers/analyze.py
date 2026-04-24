@@ -8,6 +8,11 @@ import time
 from fastapi import APIRouter, HTTPException
 
 from app.config import get_settings
+from app.prompts.grounding import (
+    RAG_SYSTEM_PROMPT,
+    NON_RAG_SYSTEM_PROMPT,
+    LLM_ZERO_SHOT_PRIORITY_PROMPT,
+)
 from app.services.llm_service import LLMService, LLMResponse
 from app.services.rag_service import RAGService
 from app.services.priority_service import get_priority_service
@@ -39,18 +44,19 @@ def get_rag_service() -> RAGService:
 
 
 def get_llm_service() -> LLMService:
-    """Get or create LLM service (OpenRouter → OpenRouter fallback → Gemini)."""
+    """Get or create LLM service (OpenAI primary → OpenRouter fallback → Gemini)."""
     global _llm_service
     if _llm_service is None:
         settings = get_settings()
         _llm_service = LLMService(
-            api_key=settings.openrouter_api_key,
-            model=settings.openrouter_llm_model,
-            base_url=settings.openrouter_base_url,
+            openai_api_key=settings.openai_api_key,
+            openai_model=settings.openai_llm_model,
+            openrouter_api_key=settings.openrouter_api_key,
+            openrouter_fallback_model=settings.openrouter_llm_fallback_model,
+            openrouter_base_url=settings.openrouter_base_url,
             gemini_api_key=settings.gemini_api_key,
             gemini_model=settings.gemini_llm_model,
             gemini_base_url=settings.gemini_base_url,
-            fallback_model=settings.openrouter_llm_fallback_model,
         )
     return _llm_service
 
@@ -68,23 +74,12 @@ def get_pricing_service() -> PricingService:
 
 # ── LLM zero-shot priority helpers ────────────────────────────────────────────
 
-_PRIORITY_SYSTEM_PROMPT = (
-    "You are a customer support ticket priority classifier. "
-    "Classify the following customer query as exactly 'urgent' or 'normal'. "
-    "Urgent means the customer faces account loss, billing error, service outage, "
-    "security issue, or severe immediate impact. Normal means general questions or "
-    "minor issues. "
-    "Respond with ONLY valid JSON, no markdown fences, no explanation:\n"
-    '{"priority": "urgent" or "normal", "confidence": <float 0.0-1.0>, "rationale": "<one sentence>"}'
-)
-
-
 def _parse_priority_response(text: str) -> tuple[str, float, str]:
     """Parse LLM priority JSON. Returns (priority, confidence, rationale)."""
     cleaned = re.sub(r"```(?:json)?\s*|\s*```", "", text).strip()
     try:
         data = json.loads(cleaned)
-        priority = str(data.get("priority", "normal")).lower().strip()
+        priority = str(data.get("priority_label", "normal")).lower().strip()
         if priority not in ("urgent", "normal"):
             priority = "normal"
         confidence = float(data.get("confidence", 0.5))
@@ -160,7 +155,7 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
         # 3. LLM zero-shot priority
         t0 = time.perf_counter()
         llm_priority_resp = llm_service.generate(
-            system_prompt=_PRIORITY_SYSTEM_PROMPT,
+            system_prompt=LLM_ZERO_SHOT_PRIORITY_PROMPT,
             user_message=f"Customer query: {request.query}",
             temperature=0.2,
             max_tokens=120,
@@ -173,17 +168,8 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
         # 4. RAG answer
         t0 = time.perf_counter()
         rag_answer_resp = llm_service.generate(
-            system_prompt=(
-                "You are a helpful support assistant for a customer support team. "
-                "Answer the user's question concisely and accurately based on the retrieved "
-                "support cases provided. If the retrieved cases are relevant, cite them. "
-                "If they are not relevant, answer based on general knowledge. "
-                "Be cautious and do not make claims about policies you are not certain about."
-            ),
-            user_message=(
-                f"Retrieved support cases for context:\n\n{rag_context}\n\n"
-                f"User question: {request.query}"
-            ),
+            system_prompt=RAG_SYSTEM_PROMPT.format(context=rag_context),
+            user_message=f"User question: {request.query}",
             temperature=0.7,
             max_tokens=500,
         )
@@ -192,11 +178,7 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
         # 5. Non-RAG answer
         t0 = time.perf_counter()
         non_rag_answer_resp = llm_service.generate(
-            system_prompt=(
-                "You are a helpful support assistant for a customer support team. "
-                "Answer the user's question concisely and accurately based on your knowledge. "
-                "Be cautious and do not make claims about policies you are not certain about."
-            ),
+            system_prompt=NON_RAG_SYSTEM_PROMPT,
             user_message=f"User question: {request.query}",
             temperature=0.7,
             max_tokens=500,
@@ -278,13 +260,8 @@ async def rag_answer(request: RAGAnswerRequest) -> AnswerResponse:
             query=request.query, k=request.k
         )
         llm_response = llm_service.generate(
-            system_prompt=(
-                "You are a helpful support assistant for a customer support team. "
-                "Answer the user's question concisely and accurately based on the retrieved support cases provided. "
-                "If the retrieved cases are relevant, cite them. If they are not relevant, answer based on general knowledge. "
-                "Be cautious and do not make claims about policies you are not certain about."
-            ),
-            user_message=f"Retrieved support cases for context:\n\n{context}\n\nUser question: {request.query}",
+            system_prompt=RAG_SYSTEM_PROMPT.format(context=context),
+            user_message=f"User question: {request.query}",
             temperature=0.7,
             max_tokens=500,
         )
@@ -312,11 +289,7 @@ async def non_rag_answer(request: NonRAGAnswerRequest) -> AnswerResponse:
     try:
         llm_service = get_llm_service()
         llm_response = llm_service.generate(
-            system_prompt=(
-                "You are a helpful support assistant for a customer support team. "
-                "Answer the user's question concisely and accurately based on your knowledge. "
-                "Be cautious and do not make claims about policies you are not certain about."
-            ),
+            system_prompt=NON_RAG_SYSTEM_PROMPT,
             user_message=f"User question: {request.query}",
             temperature=0.7,
             max_tokens=500,

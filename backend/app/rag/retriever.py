@@ -1,5 +1,3 @@
-"""Similarity retrieval over the Chroma collection."""
-
 import logging
 
 logger = logging.getLogger(__name__)

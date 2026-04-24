@@ -1,5 +1,3 @@
-"""Embedded Chroma client and collection management."""
-
 import logging
 from functools import lru_cache
 
@@ -31,12 +29,6 @@ class ChromaStore:
         logger.info(f"Initialized Chroma client with persist_dir: {persist_dir}")
 
     def get_or_create_collection(self):
-        """
-        Get or create the RAG cases collection.
-
-        Returns:
-            Chroma collection object
-        """
         try:
             collection = self.client.get_collection(name=self.COLLECTION_NAME)
             logger.info(f"Retrieved existing collection: {self.COLLECTION_NAME}")
@@ -50,7 +42,6 @@ class ChromaStore:
         return collection
 
     def delete_collection(self) -> None:
-        """Delete the collection to start fresh."""
         try:
             self.client.delete_collection(name=self.COLLECTION_NAME)
             logger.info(f"Deleted collection: {self.COLLECTION_NAME}")
@@ -69,5 +60,4 @@ class ChromaStore:
 
 @lru_cache(maxsize=1)
 def get_chroma_store(persist_dir: str) -> ChromaStore:
-    """Get or create cached Chroma store instance."""
     return ChromaStore(persist_dir=persist_dir)
