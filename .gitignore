@@ -1,8 +1,8 @@
 # general local ignored files
-data/
-notebooks/
+data/raw/
+data/interim/
+data/processed/
 logs/
-artifacts/chroma
 .claude/
 node_modules/
 

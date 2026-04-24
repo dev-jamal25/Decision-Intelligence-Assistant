@@ -9,8 +9,9 @@ from pydantic import Field, field_validator
 
 
 # Define PROJECT_ROOT once at module level (repo root)
+# In local dev: /path/to/Decision-Intelligence-Assistant
+# In Docker: /app (working directory at container startup)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-assert PROJECT_ROOT.name == "Decision-Intelligence-Assistant", f"PROJECT_ROOT mismatch: {PROJECT_ROOT}"
 
 
 class Settings(BaseSettings):
@@ -47,13 +48,6 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_llm_model: str = Field(default="gpt-4o", alias="OPENAI_LLM_MODEL")
 
-    # OpenRouter LLM settings (kept for backward compat; not used as primary)
-    openrouter_llm_model: str = Field(
-        default="openai/gpt-oss-20b:free",
-        alias="OPENROUTER_LLM_MODEL",
-    )
-
-    # Gemini fallback settings
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
     gemini_base_url: str = Field(
         default="https://generativelanguage.googleapis.com/v1beta",

@@ -1,25 +1,35 @@
-# Placeholder docker-compose. Not final; expect to revise as services stabilize.
+# Production-ready containerized setup for Decision Intelligence Assistant
 services:
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - .env
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: decision-intelligence-backend
+    env_file: .env
+    environment:
+      # Allow the web container and localhost dev hosts to hit the API
+      - CORS_ORIGINS=http://localhost:8080,http://localhost:5173,http://127.0.0.1:8080,http://127.0.0.1:5173
+    expose:
+      - "8000"
     ports:
+      # Exposed for local curl / Swagger UI at http://localhost:8000/docs
       - "8000:8000"
     volumes:
-      - ./artifacts:/app/artifacts
-      - ./data:/app/data
-      - ./logs:/app/logs
+      # Persist ChromaDB across container restarts
+      - ./artifacts/chroma:/app/artifacts/chroma
+      # ML models (read-only)
+      - ./artifacts/models:/app/artifacts/models:ro
+      # RAG knowledge base (read-only)
+      - ./data/knowledge:/app/data/knowledge:ro
+    restart: unless-stopped
 
-  frontend:
+  web:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    env_file:
-      - .env
+    container_name: decision-intelligence-frontend
     ports:
-      - "5173:5173"
+      - "5173:80"
     depends_on:
       - backend
+    restart: unless-stopped
