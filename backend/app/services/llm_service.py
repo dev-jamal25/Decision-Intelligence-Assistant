@@ -38,7 +38,7 @@ class LLMResponse:
 
 class LLMService:
     """
-    OpenRouter primary → Gemini secondary → OpenRouter tertiary.
+    OpenRouter primary → OpenRouter fallback → Gemini tertiary.
 
     Each step is only attempted if the previous step raised a transient error.
     Non-transient errors (auth, request shape) propagate immediately.
@@ -62,10 +62,10 @@ class LLMService:
         self.gemini_base_url = gemini_base_url
         self.fallback_model = fallback_model
         logger.info(f"Initialized LLM service: primary={model}")
-        if gemini_api_key:
-            logger.info(f"Gemini fallback enabled: {gemini_model}")
         if fallback_model:
-            logger.info(f"OpenRouter tertiary fallback enabled: {fallback_model}")
+            logger.info(f"OpenRouter fallback enabled: {fallback_model}")
+        if gemini_api_key:
+            logger.info(f"Gemini tertiary fallback enabled: {gemini_model}")
 
     def generate(
         self,
@@ -87,31 +87,31 @@ class LLMService:
         except Exception as primary_exc:
             if not self._is_transient(primary_exc):
                 raise
-            logger.warning(f"OpenRouter primary transient error ({primary_exc}); trying Gemini.")
+            logger.warning(f"OpenRouter primary transient error ({primary_exc}); trying OpenRouter fallback.")
 
-        # 2. Secondary: Gemini
-        if self.gemini_api_key:
+        # 2. Secondary: OpenRouter fallback model
+        if self.fallback_model:
             try:
-                result = self._call_gemini(
-                    system_prompt, user_message, temperature, max_tokens, httpx
+                result = self._call_openrouter(
+                    self.fallback_model, system_prompt, user_message, temperature, max_tokens, httpx
                 )
                 result.fallback_used = True
                 return result
-            except Exception as gemini_exc:
-                if not self._is_transient(gemini_exc):
+            except Exception as fallback_exc:
+                if not self._is_transient(fallback_exc):
                     raise
-                logger.warning(f"Gemini fallback transient error ({gemini_exc}); trying tertiary.")
+                logger.warning(f"OpenRouter fallback transient error ({fallback_exc}); trying Gemini.")
         else:
-            logger.warning("Gemini not configured; skipping to tertiary fallback.")
+            logger.warning("OpenRouter fallback model not configured; skipping to Gemini.")
 
-        # 3. Tertiary: OpenRouter fallback model
-        if not self.fallback_model:
+        # 3. Tertiary: Gemini
+        if not self.gemini_api_key:
             raise RuntimeError(
-                "All configured LLM backends failed and no tertiary fallback model is set."
+                "All configured LLM backends failed and Gemini is not configured."
             )
-        logger.warning(f"Using OpenRouter tertiary fallback: {self.fallback_model}")
-        result = self._call_openrouter(
-            self.fallback_model, system_prompt, user_message, temperature, max_tokens, httpx
+        logger.warning(f"Using Gemini tertiary fallback: {self.gemini_model}")
+        result = self._call_gemini(
+            system_prompt, user_message, temperature, max_tokens, httpx
         )
         result.fallback_used = True
         return result
