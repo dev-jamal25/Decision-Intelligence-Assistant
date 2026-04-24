@@ -30,15 +30,6 @@ Backend (FastAPI)
 └─ data/knowledge/         (RAG case base)
 ```
 
-## Tech Stack
-
-- **Frontend**: React + Vite, served by nginx
-- **Backend**: FastAPI, uvicorn, Pydantic
-- **RAG**: Chroma vector DB, OpenRouter embeddings
-- **ML**: scikit-learn (logistic regression, TF-IDF)
-- **LLMs**: OpenAI (primary), OpenRouter (fallback), Gemini (final fallback)
-- **Packaging**: Docker, Docker Compose
-
 ## Quick Start — Docker (Recommended)
 
 **Prerequisites**: Docker, Docker Compose
@@ -54,7 +45,7 @@ cp .env.example .env
 #   GEMINI_API_KEY=...
 
 # 2. Build and run
-docker-compose up -d --build
+docker-compose up --build
 
 # 3. Ingest the case base (one-time setup, ~2 minutes)
 curl -X POST "http://localhost:8000/ingest?overwrite=true" \
@@ -163,6 +154,15 @@ The app compares four approaches for ticket prioritization:
 
 Each request returns priority scores, latency, and estimated API costs. Use this to understand the trade-off between speed, accuracy, and cost.
 
+## Tech Stack
+
+- **Frontend**: React + Vite, served by nginx
+- **Backend**: FastAPI, uvicorn, Pydantic
+- **RAG**: Chroma vector DB, OpenRouter embeddings
+- **ML**: scikit-learn (logistic regression, TF-IDF)
+- **LLMs**: OpenAI (primary), OpenRouter (fallback), Gemini (final fallback)
+- **Packaging**: Docker, Docker Compose
+
 ## Project Structure
 
 ```
@@ -216,46 +216,5 @@ docker-compose.yml           # Multi-service orchestration
 3. **Final**: Google Gemini (if both fail)
 
 All models generate a priority score (1–5) and confidence estimate.
-
-### Cost
-- OpenAI: ~$0.01 per analysis
-- OpenRouter: ~$0.002 per analysis (free tier available)
-- Embeddings (OpenRouter): ~$0.0001 per query
-
-## Known Limitations
-
-1. **ML model**: Trained on Twitter customer support data; may not generalize well to other domains
-2. **RAG case base**: ~2000 curated cases; quality depends on relevance and diversity
-3. **LLM reasoning**: Subject to prompt injection and hallucination; use with caution in production
-4. **Educational demo**: This version is built for learning; production deployment would need input validation, rate limiting, and monitoring
-5. **No authentication**: All endpoints are public; add API key validation for real use
-
-## Recommendation
-
-**For production deployment:**
-
-- **Use the ML model** (logistic regression) as the primary priority scorer
-  - ✅ Fast, deterministic, low cost
-  - ✅ Trained on real support data
-  - ✅ Works without external API calls
-  - ⚠️ Requires periodic retraining on new data
-
-- **Use LLM for escalations and nuance**
-  - When ML confidence is low (<0.6), escalate to human review
-  - Or use zero-shot LLM for high-variance edge cases
-  - RAG retrieval can augment human reviewers with similar past cases
-
-- **Monitor and retrain**
-  - Log all predictions and outcomes
-  - Retrain ML model monthly on new labeled data
-  - A/B test LLM vs. ML on holdout tickets
-
-## Getting Help
-
-- **API docs**: http://localhost:8000/docs (when running)
-- **Logs**: Check `docker logs decision-intelligence-backend`
-- **Data issues**: Run `/ingest` again with `?overwrite=true` to reload
-
----
 
 **Status**: v0.1 — Educational demonstration. Production hardening required.
