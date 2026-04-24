@@ -49,6 +49,17 @@ class Settings(BaseSettings):
         alias="OPENROUTER_LLM_MODEL",
     )
 
+    # Gemini fallback settings
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+    gemini_base_url: str = Field(
+        default="https://generativelanguage.googleapis.com/v1beta",
+        alias="GEMINI_BASE_URL",
+    )
+    gemini_llm_model: str = Field(
+        default="gemini-2.0-flash",
+        alias="GEMINI_LLM_MODEL",
+    )
+
     class Config:
         # Resolve .env from project root
         env_file = str(PROJECT_ROOT / ".env")

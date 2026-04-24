@@ -23,6 +23,8 @@ class AnswerResponse(BaseModel):
     query: str = Field(..., description="The user query")
     answer: str = Field(..., description="Generated answer")
     model: str = Field(..., description="LLM model used")
+    provider: str = Field(default="openrouter", description="LLM provider used (openrouter or gemini)")
+    fallback_used: bool = Field(default=False, description="Whether Gemini fallback was used")
     context_available: bool = Field(default=False, description="Whether RAG context was used")
     retrieved_count: Optional[int] = Field(None, description="Number of retrieved cases (for RAG)")
     usage: Optional[dict] = Field(None, description="Token usage from LLM")
@@ -73,6 +75,8 @@ class AnalyzeResponse(BaseModel):
     rag_answer: str = Field(..., description="RAG-grounded answer")
     non_rag_answer: str = Field(..., description="Zero-shot answer (without RAG context)")
     answer_model: str = Field(..., description="LLM model used for answers")
+    answer_provider: str = Field(default="openrouter", description="LLM provider used (openrouter or gemini)")
+    fallback_used: bool = Field(default=False, description="Whether Gemini fallback was used for any answer")
 
     # Diagnostics
     model_info: Optional[dict] = Field(

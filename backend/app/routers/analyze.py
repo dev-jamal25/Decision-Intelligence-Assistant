@@ -34,7 +34,7 @@ def get_rag_service() -> RAGService:
 
 
 def get_llm_service() -> LLMService:
-    """Get or create LLM service."""
+    """Get or create LLM service (OpenRouter primary, Gemini fallback)."""
     global _llm_service
     if _llm_service is None:
         settings = get_settings()
@@ -42,21 +42,15 @@ def get_llm_service() -> LLMService:
             api_key=settings.openrouter_api_key,
             model=settings.openrouter_llm_model,
             base_url=settings.openrouter_base_url,
+            gemini_api_key=settings.gemini_api_key,
+            gemini_model=settings.gemini_llm_model,
+            gemini_base_url=settings.gemini_base_url,
         )
     return _llm_service
 
 
 @router.post("", response_model=AnalyzeResponse)
 async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
-    """
-    Unified analysis endpoint: combines RAG, LLM, and ML priority.
-
-    Args:
-        request: AnalyzeRequest with query and optional k
-
-    Returns:
-        AnalyzeResponse with priority, answers, and retrieval results
-    """
     try:
         rag_service = get_rag_service()
         llm_service = get_llm_service()
@@ -108,6 +102,9 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
             max_tokens=500,
         )
 
+        fallback_used = rag_answer_resp.fallback_used or non_rag_answer_resp.fallback_used
+        answer_provider = rag_answer_resp.provider
+
         return AnalyzeResponse(
             query=request.query,
             priority_prediction=priority_pred.priority,
@@ -120,7 +117,9 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
             retrieval_threshold=0.3,
             rag_answer=rag_answer_resp.text,
             non_rag_answer=non_rag_answer_resp.text,
-            answer_model=llm_service.model,
+            answer_model=rag_answer_resp.model,
+            answer_provider=answer_provider,
+            fallback_used=fallback_used,
         )
 
     except ValueError as e:
@@ -171,7 +170,9 @@ async def rag_answer(request: RAGAnswerRequest) -> AnswerResponse:
         return AnswerResponse(
             query=request.query,
             answer=llm_response.text,
-            model=llm_service.model,
+            model=llm_response.model,
+            provider=llm_response.provider,
+            fallback_used=llm_response.fallback_used,
             context_available=len(retrieved_cases) > 0,
             retrieved_count=len(retrieved_cases),
             usage=llm_response.usage,
@@ -217,7 +218,9 @@ async def non_rag_answer(request: NonRAGAnswerRequest) -> AnswerResponse:
         return AnswerResponse(
             query=request.query,
             answer=llm_response.text,
-            model=llm_service.model,
+            model=llm_response.model,
+            provider=llm_response.provider,
+            fallback_used=llm_response.fallback_used,
             context_available=False,
             retrieved_count=None,
             usage=llm_response.usage,
