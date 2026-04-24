@@ -34,98 +34,106 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="app-header-inner">
-          <span className="app-title">Decision Intelligence Assistant</span>
-          <span className="app-subtitle">
-            RAG · ML Priority · LLM Zero-Shot — side-by-side comparison
-          </span>
+    <div className="app-wrapper">
+      <header className="app-hero">
+        <div className="hero-content">
+          <div className="hero-eyebrow">Decision Intelligence Assistant</div>
+          <h1 className="hero-title">Support Analysis</h1>
+          <p className="hero-subtitle">
+            ML Priority · RAG Retrieval · LLM Zero-Shot — compared side by side
+          </p>
         </div>
       </header>
 
-      <QueryInput
-        onSubmit={handleSubmit}
-        loading={loading}
-        value={inputValue}
-        onChange={setInputValue}
-      />
+      <main className="app">
+        <QueryInput
+          onSubmit={handleSubmit}
+          loading={loading}
+          value={inputValue}
+          onChange={setInputValue}
+        />
 
-      {error && (
-        <div className="error-state">
-          <span>⚠</span>
-          <span>{error}</span>
-        </div>
-      )}
-
-      {loading && (
-        <div className="loading-state">
-          <div className="spinner spinner--page" />
-          <span>Analyzing query…</span>
-        </div>
-      )}
-
-      {!result && !loading && !error && (
-        <div className="empty-state">
-          <p className="empty-state-title">Try an example query</p>
-          <div className="empty-examples">
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                className="example-btn"
-                onClick={() => setInputValue(ex)}
-              >
-                {ex}
-              </button>
-            ))}
+        {error && (
+          <div className="error-state">
+            <span>⚠</span>
+            <span>{error}</span>
           </div>
-        </div>
-      )}
+        )}
 
-      {result && (
-        <>
-          <div className="section">
-            <div className="section-label">Query</div>
-            <p className="query-echo">"{result.query}"</p>
+        {loading && (
+          <div className="loading-state">
+            <div className="spinner spinner--page" />
+            <span>Analyzing query…</span>
           </div>
+        )}
 
-          <PriorityPanel
-            mlPrediction={result.ml_priority_prediction}
-            mlConfidence={result.ml_priority_confidence}
-            mlModel={result.priority_model}
-            llmPrediction={result.llm_zero_shot_priority_prediction}
-            llmConfidence={result.llm_zero_shot_priority_confidence}
-            llmRationale={result.llm_zero_shot_priority_rationale}
-            answerModel={result.answer_model}
-          />
+        {!result && !loading && !error && (
+          <div className="empty-state">
+            <span className="empty-state-icon">🔍</span>
+            <p className="empty-state-title">Paste a support query to get started</p>
+            <p className="empty-state-subtitle">
+              The assistant will compare ML and LLM priority signals and show RAG
+              vs. zero-shot answers side by side.
+            </p>
+            <div className="empty-examples">
+              {EXAMPLES.map((ex) => (
+                <button
+                  key={ex}
+                  className="example-btn"
+                  onClick={() => setInputValue(ex)}
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
-          <AnswerComparison
-            ragAnswer={result.rag_answer}
-            nonRagAnswer={result.non_rag_answer}
-            model={result.answer_model}
-            provider={result.answer_provider}
-            retrievalIsWeak={result.retrieval_is_weak}
-          />
+        {result && (
+          <>
+            <div className="section">
+              <div className="section-label">Query</div>
+              <p className="query-echo">"{result.query}"</p>
+            </div>
 
-          <MetricsPanel
-            retrievedCount={result.retrieved_count}
-            topScore={result.top_score}
-            isWeak={result.retrieval_is_weak}
-            threshold={result.retrieval_threshold}
-            latencyMs={result.latency_ms}
-          />
+            <PriorityPanel
+              mlPrediction={result.ml_priority_prediction}
+              mlConfidence={result.ml_priority_confidence}
+              mlModel={result.priority_model}
+              llmPrediction={result.llm_zero_shot_priority_prediction}
+              llmConfidence={result.llm_zero_shot_priority_confidence}
+              llmRationale={result.llm_zero_shot_priority_rationale}
+              answerModel={result.answer_model}
+            />
 
-          <UsagePanel
-            ragAnswerUsage={result.rag_answer_usage}
-            nonRagAnswerUsage={result.non_rag_answer_usage}
-            llmPriorityUsage={result.llm_zero_shot_priority_usage}
-            usageSummary={result.usage_summary}
-            fallbackUsed={result.fallback_used}
-          />
+            <AnswerComparison
+              ragAnswer={result.rag_answer}
+              nonRagAnswer={result.non_rag_answer}
+              model={result.answer_model}
+              provider={result.answer_provider}
+              retrievalIsWeak={result.retrieval_is_weak}
+            />
 
-          <SourcePanel cases={result.retrieved_cases} />
-        </>
-      )}
+            <MetricsPanel
+              retrievedCount={result.retrieved_count}
+              topScore={result.top_score}
+              isWeak={result.retrieval_is_weak}
+              threshold={result.retrieval_threshold}
+              latencyMs={result.latency_ms}
+            />
+
+            <UsagePanel
+              ragAnswerUsage={result.rag_answer_usage}
+              nonRagAnswerUsage={result.non_rag_answer_usage}
+              llmPriorityUsage={result.llm_zero_shot_priority_usage}
+              usageSummary={result.usage_summary}
+              fallbackUsed={result.fallback_used}
+            />
+
+            <SourcePanel cases={result.retrieved_cases} />
+          </>
+        )}
+      </main>
     </div>
   )
 }
