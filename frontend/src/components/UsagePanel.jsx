@@ -1,49 +1,58 @@
-export default function UsagePanel({ usageInfo, costInfo, provider, fallbackUsed }) {
-  if (!usageInfo && !costInfo) return null
+function CallCard({ label, usage }) {
+  if (!usage) return null
+  const cost = usage.estimated_cost_usd
+  return (
+    <div className="call-usage-card">
+      <div className="call-usage-label">{label}</div>
+      <div className="call-usage-meta">
+        <span className="usage-tag">{usage.provider}</span>
+        <span className="usage-tag">{usage.model}</span>
+      </div>
+      <div className="call-usage-tokens">
+        {usage.prompt_tokens != null && (
+          <span>In: <strong>{usage.prompt_tokens.toLocaleString()}</strong></span>
+        )}
+        {usage.completion_tokens != null && (
+          <span>Out: <strong>{usage.completion_tokens.toLocaleString()}</strong></span>
+        )}
+        {usage.total_tokens != null && (
+          <span>Total: <strong>{usage.total_tokens.toLocaleString()}</strong></span>
+        )}
+      </div>
+      <div className="call-usage-cost">
+        {cost != null ? `$${cost.toFixed(6)}` : 'Cost: —'}
+      </div>
+    </div>
+  )
+}
 
-  const totalTokens = usageInfo?.total_tokens
-  const promptTokens = usageInfo?.prompt_tokens
-  const completionTokens = usageInfo?.completion_tokens
-  const model = usageInfo?.model
-  const estimatedUsd = costInfo?.estimated_usd
-  const costNote = costInfo?.note
+export default function UsagePanel({ ragAnswerUsage, nonRagAnswerUsage, llmPriorityUsage, usageSummary, fallbackUsed }) {
+  if (!ragAnswerUsage && !nonRagAnswerUsage && !llmPriorityUsage) return null
+
+  const summary = usageSummary
+  const totalCost = summary?.estimated_cost_usd
 
   return (
     <div className="panel">
-      <div className="panel-title">Usage &amp; Cost</div>
-      <div className="metrics-row">
-        {totalTokens != null && (
-          <div className="metric-item">
-            <div className="metric-label">Total Tokens</div>
-            <div className="metric-value">{totalTokens.toLocaleString()}</div>
-          </div>
-        )}
-        {promptTokens != null && (
-          <div className="metric-item">
-            <div className="metric-label">Prompt</div>
-            <div className="metric-value">{promptTokens.toLocaleString()}</div>
-          </div>
-        )}
-        {completionTokens != null && (
-          <div className="metric-item">
-            <div className="metric-label">Completion</div>
-            <div className="metric-value">{completionTokens.toLocaleString()}</div>
-          </div>
-        )}
-        <div className="metric-item">
-          <div className="metric-label">Est. Cost</div>
-          <div className="metric-value">
-            {estimatedUsd != null ? `$${estimatedUsd.toFixed(4)}` : '—'}
-          </div>
-        </div>
+      <div className="panel-title">LLM Usage &amp; Cost</div>
+
+      <div className="call-usage-grid">
+        <CallCard label="RAG Answer" usage={ragAnswerUsage} />
+        <CallCard label="Non-RAG Answer" usage={nonRagAnswerUsage} />
+        <CallCard label="Priority (zero-shot)" usage={llmPriorityUsage} />
       </div>
 
-      <div className="usage-meta">
-        {provider && <span className="usage-tag">Provider: {provider}</span>}
-        {model && <span className="usage-tag">Model: {model}</span>}
-        {fallbackUsed && <span className="usage-tag usage-tag-warn">Fallback used</span>}
-        {costNote && <span className="usage-tag">{costNote}</span>}
-      </div>
+      {summary && (
+        <div className="usage-summary-row">
+          {summary.total_tokens != null && (
+            <span className="usage-tag">Total tokens: {summary.total_tokens.toLocaleString()}</span>
+          )}
+          <span className="usage-tag">
+            Est. total: {totalCost != null ? `$${totalCost.toFixed(6)}` : '—'}
+          </span>
+          {fallbackUsed && <span className="usage-tag usage-tag-warn">Fallback used</span>}
+        </div>
+      )}
     </div>
   )
 }

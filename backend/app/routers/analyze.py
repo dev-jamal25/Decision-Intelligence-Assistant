@@ -8,15 +8,17 @@ import time
 from fastapi import APIRouter, HTTPException
 
 from app.config import get_settings
-from app.services.llm_service import LLMService
+from app.services.llm_service import LLMService, LLMResponse
 from app.services.rag_service import RAGService
 from app.services.priority_service import get_priority_service
+from app.services.pricing_service import PricingService, normalize_usage
 from app.schemas.analyze import (
     RAGAnswerRequest,
     NonRAGAnswerRequest,
     AnswerResponse,
     AnalyzeRequest,
     AnalyzeResponse,
+    LLMCallUsage,
     LatencyMs,
     RetrievedCaseInfo,
 )
@@ -26,6 +28,7 @@ router = APIRouter(prefix="/analyze", tags=["analyze"])
 
 _rag_service = None
 _llm_service = None
+_pricing_service = None
 
 
 def get_rag_service() -> RAGService:
@@ -50,6 +53,17 @@ def get_llm_service() -> LLMService:
             fallback_model=settings.openrouter_llm_fallback_model,
         )
     return _llm_service
+
+
+def get_pricing_service() -> PricingService:
+    global _pricing_service
+    if _pricing_service is None:
+        settings = get_settings()
+        _pricing_service = PricingService(
+            openrouter_api_key=settings.openrouter_api_key,
+            openrouter_base_url=settings.openrouter_base_url,
+        )
+    return _pricing_service
 
 
 # ── LLM zero-shot priority helpers ────────────────────────────────────────────
@@ -78,35 +92,37 @@ def _parse_priority_response(text: str) -> tuple[str, float, str]:
         rationale = str(data.get("rationale", "")).strip()
         return priority, confidence, rationale
     except Exception:
-        # Graceful degradation: scan raw text
         priority = "urgent" if "urgent" in text.lower() else "normal"
         return priority, 0.5, ""
 
 
-# ── Usage / cost helpers ───────────────────────────────────────────────────────
+# ── Per-call usage builder ─────────────────────────────────────────────────────
 
-def _aggregate_usage(*llm_usages: dict) -> dict:
-    """Sum token counts across multiple LLM calls."""
-    total_prompt = 0
-    total_completion = 0
-    for u in llm_usages:
-        if not u:
-            continue
-        # OpenRouter key names
-        total_prompt += u.get("prompt_tokens", 0) or u.get("promptTokenCount", 0)
-        total_completion += u.get("completion_tokens", 0) or u.get("candidatesTokenCount", 0)
+def _build_call_usage(resp: LLMResponse, pricing: PricingService) -> LLMCallUsage:
+    """Build a LLMCallUsage from an LLMResponse using the pricing service."""
+    prompt, completion, total = normalize_usage(resp.usage)
+    estimated = pricing.estimate_cost(resp.provider, resp.model, prompt, completion)
+    return LLMCallUsage(
+        provider=resp.provider,
+        model=resp.model,
+        prompt_tokens=prompt,
+        completion_tokens=completion,
+        total_tokens=total,
+        estimated_cost_usd=estimated,
+    )
+
+
+def _usage_summary(calls: list[LLMCallUsage]) -> dict:
+    """Total tokens and cost across a list of per-call objects."""
+    total_prompt = sum(c.prompt_tokens or 0 for c in calls)
+    total_completion = sum(c.completion_tokens or 0 for c in calls)
+    costs = [c.estimated_cost_usd for c in calls if c.estimated_cost_usd is not None]
     return {
         "prompt_tokens": total_prompt,
         "completion_tokens": total_completion,
         "total_tokens": total_prompt + total_completion,
+        "estimated_cost_usd": round(sum(costs), 8) if costs else None,
     }
-
-
-def _estimate_cost(model: str, total_tokens: int) -> dict:
-    """Return cost estimate. Free-tier models are $0; others return null."""
-    if ":free" in model.lower() or model.lower().startswith("gemini"):
-        return {"estimated_usd": 0.0, "note": "Free-tier model"}
-    return {"estimated_usd": None, "note": "Cost estimation not available for this model"}
 
 
 # ── Main orchestration endpoint ────────────────────────────────────────────────
@@ -119,6 +135,7 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
         rag_service = get_rag_service()
         llm_service = get_llm_service()
         priority_service = get_priority_service()
+        pricing = get_pricing_service()
 
         # 1. Retrieval
         t0 = time.perf_counter()
@@ -193,19 +210,11 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
             or non_rag_answer_resp.fallback_used
             or llm_priority_resp.fallback_used
         )
-        answer_provider = rag_answer_resp.provider
 
-        usage = _aggregate_usage(
-            llm_priority_resp.usage,
-            rag_answer_resp.usage,
-            non_rag_answer_resp.usage,
-        )
-        usage_info = {
-            "provider": answer_provider,
-            "model": rag_answer_resp.model,
-            **usage,
-        }
-        cost_info = _estimate_cost(rag_answer_resp.model, usage.get("total_tokens", 0))
+        # Per-call usage objects
+        priority_call_usage = _build_call_usage(llm_priority_resp, pricing)
+        rag_call_usage = _build_call_usage(rag_answer_resp, pricing)
+        non_rag_call_usage = _build_call_usage(non_rag_answer_resp, pricing)
 
         return AnalyzeResponse(
             query=request.query,
@@ -230,7 +239,7 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
             rag_answer=rag_answer_resp.text,
             non_rag_answer=non_rag_answer_resp.text,
             answer_model=rag_answer_resp.model,
-            answer_provider=answer_provider,
+            answer_provider=rag_answer_resp.provider,
             fallback_used=fallback_used,
             # latency
             latency_ms=LatencyMs(
@@ -241,8 +250,11 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
                 non_rag=round(latency_non_rag, 1),
                 total=round(latency_total, 1),
             ),
-            usage_info=usage_info,
-            cost_info=cost_info,
+            # per-call usage
+            llm_zero_shot_priority_usage=priority_call_usage,
+            rag_answer_usage=rag_call_usage,
+            non_rag_answer_usage=non_rag_call_usage,
+            usage_summary=_usage_summary([priority_call_usage, rag_call_usage, non_rag_call_usage]),
         )
 
     except ValueError as e:
@@ -262,18 +274,16 @@ async def rag_answer(request: RAGAnswerRequest) -> AnswerResponse:
     try:
         rag_service = get_rag_service()
         llm_service = get_llm_service()
-
         retrieved_cases, context = rag_service.retrieve_context(
             query=request.query, k=request.k
         )
-        system_prompt = (
-            "You are a helpful support assistant for a customer support team. "
-            "Answer the user's question concisely and accurately based on the retrieved support cases provided. "
-            "If the retrieved cases are relevant, cite them. If they are not relevant, answer based on general knowledge. "
-            "Be cautious and do not make claims about policies you are not certain about."
-        )
         llm_response = llm_service.generate(
-            system_prompt=system_prompt,
+            system_prompt=(
+                "You are a helpful support assistant for a customer support team. "
+                "Answer the user's question concisely and accurately based on the retrieved support cases provided. "
+                "If the retrieved cases are relevant, cite them. If they are not relevant, answer based on general knowledge. "
+                "Be cautious and do not make claims about policies you are not certain about."
+            ),
             user_message=f"Retrieved support cases for context:\n\n{context}\n\nUser question: {request.query}",
             temperature=0.7,
             max_tokens=500,
@@ -301,13 +311,12 @@ async def non_rag_answer(request: NonRAGAnswerRequest) -> AnswerResponse:
     """Generate answer without RAG context (zero-shot, debug endpoint)."""
     try:
         llm_service = get_llm_service()
-        system_prompt = (
-            "You are a helpful support assistant for a customer support team. "
-            "Answer the user's question concisely and accurately based on your knowledge. "
-            "Be cautious and do not make claims about policies you are not certain about."
-        )
         llm_response = llm_service.generate(
-            system_prompt=system_prompt,
+            system_prompt=(
+                "You are a helpful support assistant for a customer support team. "
+                "Answer the user's question concisely and accurately based on your knowledge. "
+                "Be cautious and do not make claims about policies you are not certain about."
+            ),
             user_message=f"User question: {request.query}",
             temperature=0.7,
             max_tokens=500,

@@ -71,9 +71,10 @@ export default function App() {
           />
 
           <UsagePanel
-            usageInfo={result.usage_info}
-            costInfo={result.cost_info}
-            provider={result.answer_provider}
+            ragAnswerUsage={result.rag_answer_usage}
+            nonRagAnswerUsage={result.non_rag_answer_usage}
+            llmPriorityUsage={result.llm_zero_shot_priority_usage}
+            usageSummary={result.usage_summary}
             fallbackUsed={result.fallback_used}
           />
 

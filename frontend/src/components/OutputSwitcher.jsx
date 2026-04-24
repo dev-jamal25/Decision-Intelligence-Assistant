@@ -17,7 +17,7 @@ export default function OutputSwitcher({ ragAnswer, nonRagAnswer, model }) {
           className={`tab-btn ${activeTab === 'non-rag' ? 'active' : ''}`}
           onClick={() => setActiveTab('non-rag')}
         >
-          Zero-shot Answer
+          Non-Rag Answer
         </button>
       </div>
       <AnswerPanel

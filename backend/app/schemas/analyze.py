@@ -48,6 +48,19 @@ class RetrievedCaseInfo(BaseModel):
     score: float = Field(..., ge=0.0, le=1.0, description="Similarity score")
 
 
+class LLMCallUsage(BaseModel):
+    """Token usage and estimated cost for a single LLM call."""
+
+    provider: str = Field(..., description="Provider that answered (openrouter or gemini)")
+    model: str = Field(..., description="Model that answered")
+    prompt_tokens: Optional[int] = Field(None, description="Input token count")
+    completion_tokens: Optional[int] = Field(None, description="Output token count")
+    total_tokens: Optional[int] = Field(None, description="Total token count")
+    estimated_cost_usd: Optional[float] = Field(
+        None, description="Estimated USD cost; null if pricing unavailable"
+    )
+
+
 class LatencyMs(BaseModel):
     """Per-step latency breakdown in milliseconds."""
 
@@ -103,9 +116,13 @@ class AnalyzeResponse(BaseModel):
     # ── Latency ───────────────────────────────────────────────────────────────
     latency_ms: LatencyMs = Field(..., description="Per-step latency breakdown in ms")
 
-    # ── Usage / cost ──────────────────────────────────────────────────────────
-    usage_info: Optional[dict] = Field(None, description="Aggregated token usage across LLM calls")
-    cost_info: Optional[dict] = Field(None, description="Estimated cost info (null if not applicable)")
+    # ── Per-call usage / cost ─────────────────────────────────────────────────
+    rag_answer_usage: Optional[LLMCallUsage] = Field(None, description="Usage for RAG answer call")
+    non_rag_answer_usage: Optional[LLMCallUsage] = Field(None, description="Usage for non-RAG answer call")
+    llm_zero_shot_priority_usage: Optional[LLMCallUsage] = Field(
+        None, description="Usage for LLM zero-shot priority call"
+    )
+    usage_summary: Optional[dict] = Field(None, description="Totals across all three LLM calls")
 
     # ── Diagnostics ───────────────────────────────────────────────────────────
     model_info: Optional[dict] = Field(None, description="Additional model/diagnostics info")
